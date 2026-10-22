@@ -1,0 +1,25 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dolby components taken from the Redwood HyperOS vendor image
+# (redwood_global-ota_full-OS2.0.17.0.UMSMIXM-user-14.0-4ddcd3c40c,
+#  DAX3_3.6.1.6_r1).
+#
+# Only 64-bit variants are listed. audioserver, the effects factory and the DMS
+# HAL service are all 64-bit on renoir, so the 32-bit libswdap.so,
+# libdapparamstorage.so and DMS HAL would be shipped but never loaded. The
+# 32-bit libswdap also fails ABI resolution against the current vendor
+# libutils (see README: 9 unresolved symbols), so including it would be
+# misleading rather than useful.
+#
+# Format: <source path relative to the OTA root>
+# Hashes are recorded in proprietary-files.sha256sum.
+vendor/lib64/soundfx/libswdap.so
+vendor/lib64/libdapparamstorage.so
+vendor/lib64/libdlbdsservice.so
+vendor/lib64/vendor.dolby.hardware.dms@2.0.so
+vendor/lib64/vendor.dolby.hardware.dms@2.0-impl.so
+vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service
+vendor/etc/dolby/dax-default.xml
+vendor/etc/vintf/manifest/manifest_vendor.dolby.hardware.dms.xml
+vendor/etc/init/vendor.dolby.hardware.dms@2.0-service.rc

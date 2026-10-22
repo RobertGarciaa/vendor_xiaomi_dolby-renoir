@@ -1,0 +1,30 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dolby MultiStream (DMS) HAL 2.0.
+#
+# Follows the local convention for a vendor HAL (compare
+# device/xiaomi/sm8350-common/sepolicy/vendor/hal_misys*.te): the HAL attributes
+# are declared in sepolicy/public/attributes, and the domain, hwservice and
+# allow rules live here and in hal_dolby_dms_default.te.
+#
+# Narrow replacement for the Sony reference policy, which labelled
+# /data/vendor/dolby as generic vendor_data_file and granted binder_call in
+# both directions unconditionally.
+#
+
+# HwBinder IPC between the effect host and the DMS service.
+binder_call(hal_dolby_dms_client, hal_dolby_dms_server)
+binder_call(hal_dolby_dms_server, hal_dolby_dms_client)
+
+# Publish vendor.dolby.hardware.dms@2.0::IDms/default and let only the client
+# attribute find it. The neverallow keeps every other domain out rather than
+# relying on the lack of an allow rule.
+add_hwservice(hal_dolby_dms_server, hal_dolby_dms_hwservice)
+allow hal_dolby_dms_client hal_dolby_dms_hwservice:hwservice_manager find;
+neverallow { domain -hal_dolby_dms_server } hal_dolby_dms_hwservice:hwservice_manager add;
+neverallow { domain -hal_dolby_dms_client -hal_dolby_dms_server } hal_dolby_dms_hwservice:hwservice_manager find;
+
+# The vendor effect host reads the persisted DAP parameter cache.
+allow hal_dolby_dms_client dolby_dms_data_file:dir r_dir_perms;
+allow hal_dolby_dms_client dolby_dms_data_file:file r_file_perms;

@@ -1,0 +1,12 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Hal attributes for the Dolby DMS HAL.
+#
+# Declared here rather than with hal_attribute() in vendor policy, matching how
+# this device tree declares hal_misys. Both the client (hal_audio_default) and the
+# server (the DMS service) are typeattributeset to these.
+
+attribute hal_dolby_dms;
+attribute hal_dolby_dms_client;
+attribute hal_dolby_dms_server;

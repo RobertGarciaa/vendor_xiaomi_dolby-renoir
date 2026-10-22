@@ -1,0 +1,28 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dolby MultiStream (DMS) HAL 2.0 service domain.
+
+type hal_dolby_dms_default, domain;
+type hal_dolby_dms_default_exec, exec_type, vendor_file_type, file_type;
+
+# Service registers itself as a HAL server for the hal_dolby_dms attributes.
+hal_server_domain(hal_dolby_dms_default, hal_dolby_dms)
+
+type hal_dolby_dms_hwservice, hwservice_manager_type, protected_hwservice;
+
+type dolby_dms_data_file, data_file_type, file_type;
+
+init_daemon_domain(hal_dolby_dms_default)
+hwbinder_use(hal_dolby_dms_default)
+
+# Private state: created by init as media:media, written only by DMS.
+allow hal_dolby_dms_default dolby_dms_data_file:dir create_dir_perms;
+allow hal_dolby_dms_default dolby_dms_data_file:file create_file_perms;
+
+# DAX tuning database and the vendor libraries the service loads.
+r_dir_file(hal_dolby_dms_default, vendor_configs_file)
+r_dir_file(hal_dolby_dms_default, vendor_file)
+
+# The service must never be able to execute its own state directory.
+neverallow hal_dolby_dms_default dolby_dms_data_file:file { execute execute_no_trans };

@@ -1,0 +1,5 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+
+# Only the version/interface that the VINTF fragment declares.
+vendor.dolby.hardware.dms::IDms    u:object_r:hal_dolby_dms_hwservice:s0

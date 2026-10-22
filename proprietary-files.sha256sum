@@ -1,0 +1,9 @@
+cc3950d8c847d98f0c128fca38f949fdbd1e18cb3ac384ba77c24142efb2a1a0    2052800  vendor/lib64/soundfx/libswdap.so
+f44f1be657cd2363f57c06aa8bc7f6e0089ba5756eab8fbc7388811023128b31      24504  vendor/lib64/libdapparamstorage.so
+3122ae6728d5a3c58a1c6d6496988d75fd361672bab25a6a976bd1cc9c241f3f     445776  vendor/lib64/libdlbdsservice.so
+ebe979cf25664a3bfc5a707a27c07eb732a8145c03294bb3b2395c2b4ee7e34e     259768  vendor/lib64/vendor.dolby.hardware.dms@2.0.so
+24af1041e3caef59d76e23f235e287be51cd07e387ec299042ead829755db835      47792  vendor/lib64/vendor.dolby.hardware.dms@2.0-impl.so
+d7da5c108a086c2832da319a6c82bbc06e65ab25a949a7ba2056600ecaffd345      11752  vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service
+d7e21ddb0f9d58330b655dd120799b3db46428f6840f87e707239644693a1a9c      85051  vendor/etc/dolby/dax-default.xml
+1168fc7a98712222b9e3b9a705c3c06acfe7b287f38fdd3e0cf7793fa8aa4dfd        315  vendor/etc/vintf/manifest/manifest_vendor.dolby.hardware.dms.xml
+4e51845631d8f9765761892a5a01a883ebc3c21a9227c251969356c9b60f9d52        186  vendor/etc/init/vendor.dolby.hardware.dms@2.0-service.rc

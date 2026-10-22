@@ -1,0 +1,21 @@
+#
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+#
+# Dolby MultiStream (DMS) HAL 2.0.
+#
+# Binary, VINTF fragment and DAX database come from the Redwood
+# OS2.0.17.0.UMSMIXM vendor image (hashes in proprietary-files.txt). This .rc
+# reproduces the Redwood service definition explicitly in our tree so the
+# data directory ownership is reviewable instead of being inherited blindly.
+# Semantics are identical to the Redwood file: no oneshot, so init restarts
+# the HAL if it dies, which is what the audio effect path needs.
+#
+
+service vendor.dolby-hal-2-0 /vendor/bin/hw/vendor.dolby.hardware.dms@2.0-service
+    class hal
+    user media
+    group audio media
+
+on post-fs-data
+    mkdir /data/vendor/dolby 0770 media media

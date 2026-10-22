@@ -1,0 +1,8 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+
+# Dolby DMS service executable.
+/(vendor|system/vendor)/bin/hw/vendor\.dolby\.hardware\.dms@2\.0-service    u:object_r:hal_dolby_dms_default_exec:s0
+
+# Private DMS state. The directory is created by init in dolby.rc.
+/data/vendor/dolby(/.*)?                                                    u:object_r:dolby_dms_data_file:s0

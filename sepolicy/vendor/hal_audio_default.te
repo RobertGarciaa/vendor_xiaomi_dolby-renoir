@@ -1,0 +1,4 @@
+# Copyright (C) 2026 The LineageOS Project
+# SPDX-License-Identifier: Apache-2.0
+# The binderized HIDL effect factory loads vendor soundfx in this domain.
+hal_client_domain(hal_audio_default, hal_dolby_dms)
