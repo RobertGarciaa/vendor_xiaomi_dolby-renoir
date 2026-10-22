@@ -109,7 +109,7 @@ def find_tool(name, extra_dirs=()):
 def find_rom_root(start):
     """Find the AOSP/LineageOS tree root by walking up for prebuilts/.
 
-    The repository sits at <rom>/vendor/xiaomi/dolby in a real tree, but it is
+    The repository sits at <rom>/vendor/xiaomi/dolby-renoir in a real tree, but it is
     also checked out outside a tree during development. Rather than assume a
     fixed depth, walk up until a directory containing prebuilts/ is found.
     """

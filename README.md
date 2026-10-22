@@ -1,4 +1,4 @@
-# vendor/xiaomi/dolby
+# vendor/xiaomi/dolby-renoir
 
 Dolby Atmos for the Xiaomi Mi 11 Lite 5G (renoir), built from the Redwood
 HyperOS Dolby stack.
@@ -22,22 +22,22 @@ PixelOS renoir build has been changed.
 
 ## Placement and enabling
 
-This repository lives at `vendor/xiaomi/dolby` in the ROM tree:
+This repository lives at `vendor/xiaomi/dolby-renoir` in the ROM tree:
 
 ```
 <rom root>/
-└── vendor/xiaomi/dolby/
+└── vendor/xiaomi/dolby-renoir/
 ```
 
 The renoir device tree enables the port with `TARGET_ENABLE_XIAOMI_DOLBY ?= true`
 before inheriting the common product file. Both `device.mk` and `BoardConfig.mk`
 use that flag. The integration is intended for this renoir build.
 
-When enabled, `device.mk` inherits `vendor/xiaomi/dolby/dolby.mk`, and BoardConfig adds:
+When enabled, `device.mk` inherits `vendor/xiaomi/dolby-renoir/dolby.mk`, and BoardConfig adds:
 
 ```make
-BOARD_VENDOR_SEPOLICY_DIRS += vendor/xiaomi/dolby/sepolicy/vendor
-SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += vendor/xiaomi/dolby/sepolicy/public
+BOARD_VENDOR_SEPOLICY_DIRS += vendor/xiaomi/dolby-renoir/sepolicy/vendor
+SYSTEM_EXT_PUBLIC_SEPOLICY_DIRS += vendor/xiaomi/dolby-renoir/sepolicy/public
 ```
 
 Public policy declares the DMS HAL attributes. Vendor policy grants DMS access
@@ -59,7 +59,7 @@ stock config when the port is disabled.
 copy once before the ROM build:
 
 ```bash
-vendor/xiaomi/dolby/tools/import-misound.sh --dump /path/to/redwood-dump
+vendor/xiaomi/dolby-renoir/tools/import-misound.sh --dump /path/to/redwood-dump
 ```
 
 This verifies the input APK against a pinned SHA-256, rewrites the Dolby effect

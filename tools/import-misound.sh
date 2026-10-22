@@ -7,13 +7,13 @@
 #
 # Run this once, before building the ROM, from the ROM root:
 #
-#   vendor/xiaomi/dolby/tools/import-misound.sh \
+#   vendor/xiaomi/dolby-renoir/tools/import-misound.sh \
 #       --dump /path/to/redwood-dump
 #
 # It extracts MiSound.apk from the dump, verifies its SHA-256 against the pinned
 # value, rewrites the Dolby effect UUIDs to the software DAP, bundles the MIUI
 # compatibility shims as classes2.dex, signs the result with the platform key,
-# and writes it to vendor/xiaomi/dolby/proprietary/product/app/MiSound/.
+# and writes it to vendor/xiaomi/dolby-renoir/proprietary/product/app/MiSound/.
 #
 # The output is not committed. It is not byte-reproducible, because zip entries carry build-time metadata, so instead of
 # pinning an output hash this script prints the result and patch-misound.py
