@@ -1,0 +1,27 @@
+//
+// Copyright (C) 2026 The LineageOS Project
+// SPDX-License-Identifier: Apache-2.0
+//
+// Dolby entry point, Quick Settings tile and persistent effect owner.
+//
+// Persistent platform-signed keeper with Settings/search/QS entry points.
+// Scanned system partitions, including system_ext, can carry FLAG_SYSTEM;
+// persistence is not intrinsically limited to /system. Keep current placement.
+// MODIFY_AUDIO_ROUTING authorizes AudioService's audioserver state callback.
+//
+
+android_app {
+    name: "DolbyControl",
+
+    srcs: ["src/**/*.java"],
+    resource_dirs: ["res"],
+    manifest: "AndroidManifest.xml",
+
+    certificate: "platform",
+    platform_apis: true,
+    privileged: true,
+
+    optimize: {
+        enabled: true,
+    },
+}

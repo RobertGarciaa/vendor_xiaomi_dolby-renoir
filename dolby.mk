@@ -17,15 +17,6 @@
 PRODUCT_SOONG_NAMESPACES += \
     vendor/xiaomi/dolby
 
-# Ported MiSound: the original UI, profiles and equalizer, with the effect
-# UUIDs rewritten to the software DAP. Built by tools/import-misound.sh, which
-# verifies the input hash before patching.
-PRODUCT_PACKAGES += \
-    MiSound
-
-# MiSound is platform-signed and installed as a non-privileged product app.
-# Signature permissions are resolved by PackageManager, not a privapp allowlist.
-
 # Redwood software DAP + Dolby MultiStream (DMS) HAL.
 PRODUCT_PACKAGES += \
     libdapparamstorage \
@@ -36,6 +27,19 @@ PRODUCT_PACKAGES += \
     vendor.dolby.hardware.dms@2.0-service \
     dolby-dax-default.xml \
     vendor.dolby.hardware.dms@2.0-service.rc
+
+# Settings entry, Quick Settings tile and the persistent effect owner.
+PRODUCT_PACKAGES += \
+    DolbyControl
+
+# Ported MiSound: the original UI, profiles and equalizer, with the effect
+# UUIDs rewritten to the software DAP. Built by tools/import-misound.sh, which
+# verifies the input hash before patching. See README.md.
+PRODUCT_PACKAGES += \
+    MiSound
+
+# MiSound is platform-signed and installed as a non-privileged product app.
+# Signature permissions are resolved by PackageManager, not a privapp allowlist.
 
 # Install the Dolby-extended effects config for the SKU renoir uses, keeping
 # every existing effect. There is exactly one source for this destination:

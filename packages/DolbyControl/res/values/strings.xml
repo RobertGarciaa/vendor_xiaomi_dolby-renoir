@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The LineageOS Project -->
+<resources>
+    <string name="dolby_title">Dolby Atmos</string>
+    <string name="dolby_summary">Profiles, equalizer and surround enhancement</string>
+    <string name="dolby_keywords">dolby,atmos,sound,audio,equalizer,eq,surround,profile</string>
+    <string name="dolby_unavailable">Unavailable</string>
+    <string name="misound_missing">MiSound is not installed on this build</string>
+    <string name="profile_dynamic">Dynamic</string>
+    <string name="profile_movie">Movie</string>
+    <string name="profile_music">Music</string>
+    <string name="profile_voice">Voice</string>
+</resources>
