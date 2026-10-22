@@ -17,6 +17,15 @@
 PRODUCT_SOONG_NAMESPACES += \
     vendor/xiaomi/dolby
 
+# Ported MiSound: the original UI, profiles and equalizer, with the effect
+# UUIDs rewritten to the software DAP. Built by tools/import-misound.sh, which
+# verifies the input hash before patching.
+PRODUCT_PACKAGES += \
+    MiSound
+
+# MiSound is platform-signed and installed as a non-privileged product app.
+# Signature permissions are resolved by PackageManager, not a privapp allowlist.
+
 # Redwood software DAP + Dolby MultiStream (DMS) HAL.
 PRODUCT_PACKAGES += \
     libdapparamstorage \

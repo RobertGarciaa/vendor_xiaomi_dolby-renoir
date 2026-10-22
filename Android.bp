@@ -215,3 +215,27 @@ prebuilt_etc {
     sub_dir: "init",
     soc_specific: true,
 }
+
+// Redwood MiSound, rebuilt with the software DAP UUIDs by
+// tools/patch-misound.py and added to the tree by
+// tools/import-misound.sh. Not committed: it is a proprietary Xiaomi APK, and
+// the patched output is derived. The input hash is pinned; output UUIDs,
+// DEX ordering and signature are verified by those tools.
+//
+// certificate: "platform" re-signs the prebuilt with the platform key. That is
+// required because the patched APK must keep the same certificate identity as
+// the rest of the system image; it is not shipped with Xiaomi's signature.
+android_app_import {
+    name: "MiSound",
+    owner: "xiaomi",
+    apk: "proprietary/product/app/MiSound/MiSound.apk",
+    certificate: "platform",
+    privileged: false,
+    dex_preopt: {
+        enabled: false,
+    },
+    // The APK already contains a patched classes.dex and a shim classes2.dex;
+    // preopting a hand-patched multidex APK adds risk without benefit.
+    presigned: false,
+    product_specific: true,
+}
