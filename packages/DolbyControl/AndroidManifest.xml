@@ -32,7 +32,7 @@
             android:name=".DolbySettingsActivity"
             android:exported="true"
             android:label="@string/dolby_title"
-            android:theme="@android:style/Theme.DeviceDefault.Translucent.NoTitleBar">
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="com.android.settings.action.IA_SETTINGS" />
             </intent-filter>
