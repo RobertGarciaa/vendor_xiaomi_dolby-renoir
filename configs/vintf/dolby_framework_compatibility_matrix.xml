@@ -1,0 +1,28 @@
+<!--
+     Copyright (C) 2026 The LineageOS Project
+     SPDX-License-Identifier: Apache-2.0
+
+     Framework compatibility matrix for the Dolby DMS HAL.
+
+     vendor.dolby.hardware.dms@2.0 is a device-specific HAL, so it is declared
+     here rather than in the AOSP matrices. Without this entry checkvintf
+     reports:
+
+       The following instances are in the device manifest but not specified
+       in framework compatibility matrix:
+         vendor.dolby.hardware.dms@2.0::IDms/default
+
+     optional="true" because the HAL is only present when the product enables
+     Dolby (TARGET_ENABLE_XIAOMI_DOLBY).
+-->
+<compatibility-matrix version="1.0" type="framework">
+    <hal format="hidl" optional="true">
+        <name>vendor.dolby.hardware.dms</name>
+        <transport>hwbinder</transport>
+        <version>2.0</version>
+        <interface>
+            <name>IDms</name>
+            <instance>default</instance>
+        </interface>
+    </hal>
+</compatibility-matrix>
