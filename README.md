@@ -289,3 +289,20 @@ python3 tests/test_dax_tuning.py
 
 [Candidate policy, measurement procedure and rollback](docs/renoir-dax-static-v1.md).
 No dedicated Android measurement APK has been implemented.
+
+## MiSound settings-entry fix (2026-10-23)
+
+See [docs/misound-entry-crash.md](docs/misound-entry-crash.md). MiSound crashed in
+`y.h.w0` because it ran as `platform_app_36` and was denied reads on the generic
+`vendor_audio_prop`, so the Dolby capability came back empty, the effect selector
+was removed, and the still-referenced preference stayed null.
+
+The Dolby capability now has an exact vendor-restricted property type readable by
+platform apps and shell, and the MiSound fixup guards its nullable effect
+selection. The prebuilt APK has been regenerated and passes the contract check that
+the Soong module enforces, so a stale APK without the guard fails the build.
+
+Native blobs and renoir DAX tuning do not need to be re-extracted for this fix.
+Both changes must be in the same build, and the ROM still has to be rebuilt,
+flashed and verified on the device: the property type has only been checked with
+checkpolicy/property_info_checker, not by booting the new image.

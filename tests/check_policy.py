@@ -5,16 +5,10 @@ This is an offline smoke/neverallow check, NOT a replacement for rebuilding the
 product's partitioned policy, public mappings, compatibility tests or image.
 It reads the existing AOSP out tree and writes only to a temporary directory.
 
-Two modes, chosen automatically:
-
-  * The cached baseline already contains the Dolby policy. This happens once the
-    product has been built with Dolby enabled, because the policy is part of the
-    tree by then. The baseline is compiled as-is.
-  * The baseline does not contain it (fresh out tree, or Dolby not yet built).
-    The rules are expanded with m4 and merged into a copy of the baseline.
-
-Merging unconditionally would declare the hal_dolby_dms attributes twice and
-checkpolicy rejects the duplicate, so the mode is detected rather than assumed.
+A cached baseline that already contains Dolby is rejected: compiling that old
+copy cannot validate changed source rules. A baseline without Dolby can be used
+for a limited expanded-rule smoke test. The real partitioned policy still must
+be rebuilt by the user; this script never certifies the current image.
 """
 from pathlib import Path
 import argparse
@@ -46,7 +40,7 @@ if not compiler.is_file():
 s = baseline.read_text()
 
 if MARKER in s:
-    mode = 'baseline already contains the Dolby policy; compiling as-is'
+    sys.exit('Cached policy already contains Dolby rules. Compiling it as-is would not validate current source changes. Rebuild the product policy; no source-validation PASS is emitted.')
 else:
     mode = 'baseline does not contain it; merging expanded rules'
     files = [src / 'public/global_macros', src / 'public/te_macros',

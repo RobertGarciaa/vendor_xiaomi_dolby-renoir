@@ -9,6 +9,7 @@ import argparse
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
+from misound_apk_contract import verify_apk
 
 
 def elf_class(path):
@@ -22,6 +23,17 @@ def elf_class(path):
 
 def check(out):
     errors = []
+    try:
+        verify_apk(out/'product/app/MiSound/MiSound.apk')
+    except Exception as failure:
+        errors.append('MiSound fixup contract: '+str(failure))
+    contexts=out/'vendor/etc/selinux/vendor_property_contexts'
+    expected='ro.vendor.audio.dolby.dax.support u:object_r:vendor_dolby_config_prop:s0 exact bool'
+    try:
+        normalized=[' '.join(line.split()) for line in contexts.read_text().splitlines()]
+        if expected not in normalized:errors.append('Dolby capability exact property context missing/stale')
+    except OSError as failure:
+        errors.append('Vendor property contexts unavailable: '+str(failure))
     app = out / 'system/priv-app/DolbyControl/DolbyControl.apk'
     xml = out / 'system/etc/permissions/privapp-permissions-dolby-renoir.xml'
     if not app.is_file():
