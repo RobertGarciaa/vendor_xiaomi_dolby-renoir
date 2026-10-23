@@ -5,8 +5,9 @@
 #
 """Parse a TFA98xx container (.cnt) using the kernel's own structure layout.
 
-The on-device speaker amplifier on renoir is a pair of NXP TFA9873 parts
-(I2C 0x34 and 0x35). Their tuning lives in vendor/firmware/tfa98xx.cnt and is
+The stock renoir container targets TFA9873N1B devices at I2C 0x34 and 0x35.
+This identifies the configuration, not a runtime silicon revision readback.
+Its tuning lives in vendor/firmware/tfa98xx.cnt and is
 interpreted at runtime by techpack/audio/asoc/codecs/tfa98xx. That driver is
 the authoritative description of the format, so this parser mirrors
 inc/tfa98xx_parameters.h rather than guessing.
@@ -19,7 +20,7 @@ Layouts used (all packed, see "#pragma pack (push, 1)"):
                   index[]          (TfaDescPtr_t)
   TfaDescPtr_t    offset:24 | type:8   (one u32, little endian)
   TfaDeviceList_t length u8 bus u8 dev u8 func u8
-                  (4 bytes of padding alignment follows in practice)
+                  devid u32 (not padding)
                   name TfaDescPtr_t, list[] TfaDescPtr_t
   TfaProfileList_t length:8 group:8 ID:16
                   name TfaDescPtr_t, list[] TfaDescPtr_t
@@ -33,8 +34,12 @@ Usage:
 
 import argparse
 import json
+import hashlib
+import re
 import struct
 import sys
+import zlib
+from pathlib import Path
 
 # enum TfaDescriptorType, inc/tfa98xx_parameters.h
 DSC = {
@@ -49,20 +54,56 @@ DSC = {
 }
 
 
+def field_names(path):
+    """Read names from the selected chip's kernel header; no cross-chip guesses."""
+    if path is None:
+        return {}
+    text = Path(path).read_text()
+    names = {}
+    for name, value, comment in re.findall(
+            r'TFA\w+_BF_(\w+)\s*=\s*0x([0-9a-fA-F]+),\s*/\*\s*(.*?)\*/', text):
+        names[int(value, 16)] = (name, comment.lstrip('!< ').strip())
+    # Headers also name undocumented fields in their bit-name tables.
+    for value, name, comment in re.findall(
+            r'\{\s*0x([0-9a-fA-F]+),\s*"([^"]+)"\s*\},\s*/\*\s*(.*?)\*/', text):
+        names.setdefault(int(value, 16), (name, comment.strip(' ,')))
+    if not names:
+        raise ValueError("no bitfield names in selected header")
+    return names
+
+
 class Cnt:
-    def __init__(self, path):
-        self.b = open(path, "rb").read()
+    def __init__(self, path, names=None):
+        self.b = Path(path).read_bytes()
+        self.names = names or {}
+        self.check(0, 46)
+        size, expected = self.unpack('<II', 6)
+        if self.b[:2] != b'PM' or self.b[2:4] != b'3_' or self.b[4:6] != b'01':
+            raise ValueError("supported container format is PM 3_ 01")
+        if size != len(self.b):
+            raise ValueError(f"declared size {size} != file size {len(self.b)}")
+        actual = zlib.crc32(self.b[14:])
+        if expected != actual:
+            raise ValueError(f"CRC mismatch: stored {expected:08x}, computed {actual:08x}")
+
+    def check(self, off, size):
+        if off < 0 or size < 0 or off + size > len(self.b):
+            raise ValueError(f"out-of-bounds data at 0x{off:x}, size {size}")
+
+    def unpack(self, fmt, off):
+        self.check(off, struct.calcsize(fmt))
+        return struct.unpack_from(fmt, self.b, off)
 
     def desc_ptr(self, off):
-        v = struct.unpack_from("<I", self.b, off)[0]
+        v = self.unpack("<I", off)[0]
         return v & 0xFFFFFF, (v >> 24) & 0xFF
 
     def cstr(self, off):
         if not 0 < off < len(self.b):
-            return None
+            raise ValueError(f"invalid string offset 0x{off:x}")
         end = self.b.find(b"\0", off)
         if end < 0:
-            return None
+            raise ValueError(f"unterminated string at 0x{off:x}")
         return self.b[off:end].decode("ascii", "replace")
 
     def header(self):
@@ -82,7 +123,43 @@ class Cnt:
             "ndev": struct.unpack_from("<H", b, 40)[0],
             "nprof": struct.unpack_from("<H", b, 42)[0],
             "nlive": struct.unpack_from("<H", b, 44)[0],
+            "crc_valid": True,
+            "sha256": hashlib.sha256(b).hexdigest(),
         }
+
+    def named(self, pos):
+        off, typ = self.desc_ptr(pos)
+        if typ != 3:
+            raise ValueError(f"name at 0x{pos:x} is not a STRING descriptor")
+        return self.cstr(off)
+
+    def item(self, pos):
+        off, typ = self.desc_ptr(pos)
+        item = {"type": DSC.get(typ, typ), "offset": off}
+        # DEFAULT is a list delimiter, not a pointer to payload.
+        if typ in (6, 17):
+            return item
+        self.check(off, 1)
+        if typ == 3:
+            item['string'] = self.cstr(off)
+        elif typ == 16:
+            value, field = self.unpack('<HH', off)
+            width, shift, register = (field & 15) + 1, (field >> 4) & 15, field >> 8
+            if shift + width > 16 or value >= 1 << width:
+                raise ValueError(f"invalid bitfield/value at 0x{off:x}")
+            item.update(value=value, field=field, register=register, shift=shift,
+                        width=width, mask=((1 << width) - 1) << shift)
+            if field in self.names:
+                item['name'], item['description'] = self.names[field]
+        elif typ == 2:
+            address, value, mask = self.unpack('<BHH', off)
+            item.update(register=address, value=value, mask=mask)
+        elif typ in (4, 5):
+            size = self.unpack('<I', off + 4)[0]
+            self.check(off + 8, size)
+            item.update(name=self.named(off), size=size,
+                        sha256=hashlib.sha256(self.b[off + 8:off + 8 + size]).hexdigest())
+        return item
 
     def devices(self):
         """Walk the container index and return device lists with profiles."""
@@ -90,9 +167,11 @@ class Cnt:
         out = []
         for i in range(hdr["ndev"]):
             base, typ = self.desc_ptr(46 + i * 4)
-            if typ != 0 or not 0 < base < len(self.b):
-                continue
+            if typ != 0:
+                raise ValueError(f"device index {i} is not a DEVICE descriptor")
+            self.check(base, 12)
             length = self.b[base]
+            self.check(base + 12, length * 4)
             dev = {
                 "index": i,
                 "offset": base,
@@ -100,33 +179,37 @@ class Cnt:
                 "bus": self.b[base + 1],
                 "dev_addr": self.b[base + 2],
                 "func": self.b[base + 3],
-                "name": None,
+                "devid": self.unpack('<I', base + 4)[0],
+                "name": self.named(base + 8),
+                "items": [],
                 "profiles": [],
             }
-            nm_off, _ = self.desc_ptr(base + 8)
-            dev["name"] = self.cstr(nm_off)
             for j in range(length):
                 poff, ptyp = self.desc_ptr(base + 12 + j * 4)
-                if ptyp != 1 or not 0 < poff < len(self.b):
+                if ptyp != 1:
+                    item = self.item(base + 12 + j * 4)
+                    item['list_index'] = j
+                    dev['items'].append(item)
                     continue
-                plen, group, pid = struct.unpack_from("<BBH", self.b, poff)
-                pname_off, _ = self.desc_ptr(poff + 4)
+                plen, group, pid = self.unpack("<BBH", poff)
+                if plen < 1 or pid != 0x1234:
+                    raise ValueError(f"invalid profile at 0x{poff:x}")
+                self.check(poff + 8, (plen - 1) * 4)
                 prof = {
-                    "name": self.cstr(pname_off),
+                    "name": self.named(poff + 4),
+                    "offset": poff,
+                    "list_index": j,
                     "group": group,
                     "id": pid,
                     "length": plen,
                     "items": [],
                 }
-                for k in range(max(0, plen - 1)):
-                    ioff, ityp = self.desc_ptr(poff + 8 + k * 4)
-                    item = {"type": DSC.get(ityp, ityp), "offset": ioff}
-                    if ityp == 3:
-                        item["string"] = self.cstr(ioff)
-                    elif ityp == 16:
-                        value, field = struct.unpack_from("<HH", self.b, ioff)
-                        item["value"] = value
-                        item["field"] = field
+                phase = 'active'
+                for k in range(plen - 1):
+                    item = self.item(poff + 8 + k * 4)
+                    if item['type'] == 'DEFAULT':
+                        phase = 'restore'
+                    item['phase'] = phase
                     prof["items"].append(item)
                 dev["profiles"].append(prof)
             out.append(dev)
@@ -137,9 +220,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("cnt")
     ap.add_argument("--json")
+    ap.add_argument("--field-header", help="chip-specific *_tfafieldnames.h")
     args = ap.parse_args()
 
-    c = Cnt(args.cnt)
+    c = Cnt(args.cnt, field_names(args.field_header))
     hdr = c.header()
     devs = c.devices()
 
@@ -152,6 +236,11 @@ def main():
     for d in devs:
         print(f"\n== DEV{d['index']} 0x{d['dev_addr']:02x}  name={d['name']!r} "
               f"(bus={d['bus']} func={d['func']} items={d['length']})")
+        for it in d['items']:
+            if it['type'] == 'BITFIELD':
+                print(f"   COMMON {it.get('name', '?'):16s} field=0x{it['field']:04x} value={it['value']}")
+            else:
+                print(f"   COMMON {it['type']} {it.get('name', '')}")
         for p in d["profiles"]:
             print(f"   PROFILE {p['name']!r} group={p['group']} "
                   f"id=0x{p['id']:04x} items={len(p['items'])}")
@@ -160,7 +249,7 @@ def main():
                     print(f"      STRING   {it['string']!r}")
                 elif it["type"] == "BITFIELD":
                     print(f"      BITFIELD field=0x{it['field']:04x} "
-                          f"value={it['value']}")
+                          f"value={it['value']} name={it.get('name', '?')} phase={it['phase']}")
                 else:
                     print(f"      {it['type']}")
 
@@ -171,4 +260,8 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except (ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        sys.exit(1)
