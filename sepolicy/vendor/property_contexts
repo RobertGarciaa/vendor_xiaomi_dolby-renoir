@@ -1,0 +1,2 @@
+# Exact match overrides the platform ro.vendor.audio.* internal-property prefix.
+ro.vendor.audio.dolby.dax.support u:object_r:vendor_dolby_config_prop:s0 exact bool

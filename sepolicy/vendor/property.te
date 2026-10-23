@@ -1,0 +1,7 @@
+# MiSound is a platform-signed product app (platform_app_all, including
+# platform_app_36). Advertise only our actual software-DAP capability across
+# the vendor/platform boundary; never open all vendor_audio_prop to apps.
+vendor_restricted_prop(vendor_dolby_config_prop)
+get_prop(platform_app_all, vendor_dolby_config_prop)
+# Read-only diagnosis of this single capability; shell still cannot set it.
+get_prop(shell, vendor_dolby_config_prop)
