@@ -26,12 +26,13 @@ def fixture_zip(main,compat=None):
     archive.seek(0);return archive
 
 class ContractTest(unittest.TestCase):
-    def payload(self):return b'\0'.join(contract.REQUIRED_UUIDS+(contract.GUARD_MARKER,))
+    def payload(self):return b'\0'.join(contract.REQUIRED_UUIDS+contract.GUARD_MARKERS)
     def test_required_contract(self):
         contract.verify_apk(fixture_zip(self.payload(),b'Lmiui/util/FeatureParser;'))
     def test_stale_missing_or_hardware_artifact(self):
         for payload,compat in [(b'\0'.join(contract.REQUIRED_UUIDS),b'Lmiui/util/FeatureParser;'),
              (self.payload(),None),(self.payload(),b'wrong class'),
+             (b'\0'.join(contract.REQUIRED_UUIDS+(contract.GUARD_MARKERS[0],)),b'Lmiui/util/FeatureParser;'),
              (self.payload()+contract.OLD_UUIDS[0],b'Lmiui/util/FeatureParser;')]:
             with self.assertRaises(ValueError):contract.verify_apk(fixture_zip(payload,compat))
     def test_dex_corruption(self):

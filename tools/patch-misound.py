@@ -93,6 +93,53 @@ def die(msg):
 
 SELECTION_CLASS = "y/h"
 SELECTION_GUARD_MARKER = "renoir: effect selection unavailable; skip dependent UI refresh"
+CREATE_GUARD_MARKER = "renoir: no effect selection at create; report Dolby inactive"
+
+
+def guard_create_preferences_selection(body):
+    """Stop onCreatePreferences from comparing a null selection.
+
+    H0 removes the unsupported selector but leaves the preference object and its
+    null value in place. w0 now returns early, so execution continues into
+    onCreatePreferences, which compares the same value with "dolby" to decide
+    whether Dolby is active. Returning early here would skip the rest of the
+    screen setup, so a missing selection is resolved to false instead: that is
+    the accurate answer, not a substituted effect or a claimed success.
+    """
+    start = '.method public onCreatePreferences(Landroid/os/Bundle;Ljava/lang/String;)V\n'
+    if body.count(start) != 1 or ':renoir_create_selection_done' in body:
+        raise ValueError('Unexpected or already patched onCreatePreferences')
+    begin = body.index(start)
+    end = body.index('.end method', begin)
+    method = body[begin:end]
+    anchor = ('    invoke-direct {p0}, Ly/h;->r0()V\n'
+              '\n    iget-object p1, p0, Ly/h;->w:Lmiuix/preference/DropDownPreference;\n'
+              '\n    invoke-virtual {p1}, Lmiuix/preference/DropDownPreference;->getValue()Ljava/lang/String;\n'
+              '\n    move-result-object p1\n'
+              '\n    const-string p2, "dolby"\n'
+              '\n    invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z\n'
+              '\n    move-result p1\n')
+    if body.count(anchor) != 1:
+        raise ValueError('Pinned onCreatePreferences selection consumer not found')
+    if '.registers 8' not in method:
+        raise ValueError('Unexpected onCreatePreferences register layout')
+    guarded = ('    invoke-direct {p0}, Ly/h;->r0()V\n'
+               '\n    iget-object p1, p0, Ly/h;->w:Lmiuix/preference/DropDownPreference;\n'
+               '\n    invoke-virtual {p1}, Lmiuix/preference/DropDownPreference;->getValue()Ljava/lang/String;\n'
+               '\n    move-result-object p1\n'
+               '\n    if-nez p1, :renoir_create_selection_known\n'
+               '\n    const-string p1, "'+CREATE_GUARD_MARKER+'"\n'
+               '\n    const-string v0, "HeadsetSettings"\n'
+               '\n    invoke-static {v0, p1}, Landroid/util/Log;->d(Ljava/lang/String;Ljava/lang/String;)I\n'
+               '\n    const/4 p1, 0x0\n'
+               '\n    goto :renoir_create_selection_done\n'
+               '\n    :renoir_create_selection_known\n'
+               '\n    const-string p2, "dolby"\n'
+               '\n    invoke-virtual {p1, p2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z\n'
+               '\n    move-result p1\n'
+               '\n    :renoir_create_selection_done\n')
+    method = method.replace(anchor, guarded)
+    return body[:begin] + method + body[end:]
 
 
 def guard_effect_selection(body):
@@ -424,12 +471,14 @@ def main():
         selection_target = os.path.join(smali_dir, SELECTION_CLASS + '.smali')
         try:
             with open(selection_target, 'r', encoding='utf-8') as f:
-                guarded = guard_effect_selection(f.read())
+                selection_body = f.read()
+            guarded = guard_effect_selection(selection_body)
+            guarded = guard_create_preferences_selection(guarded)
         except (OSError, ValueError) as error:
             die('selection null guard: '+str(error))
         with open(selection_target, 'w', encoding='utf-8') as f:
             f.write(guarded)
-        print('patch-misound: guarded original nullable effect-selection consumer')
+        print('patch-misound: guarded both nullable effect-selection consumers')
 
         print("patch-misound: reassembling classes.dex")
         patched_dex = os.path.join(work, "classes-patched.dex")
@@ -439,8 +488,9 @@ def main():
         # lookup can miss entries. This is the check that caught the raw
         # byte-patch approach being wrong.
         rebuilt_bytes = open(patched_dex, "rb").read()
-        if rebuilt_bytes.count(SELECTION_GUARD_MARKER.encode('ascii')) != 1:
-            die('selection guard marker missing/duplicated in rebuilt DEX')
+        for marker in (SELECTION_GUARD_MARKER, CREATE_GUARD_MARKER):
+            if rebuilt_bytes.count(marker.encode('ascii')) != 1:
+                die('guard marker missing/duplicated in rebuilt DEX: '+marker)
         count, unsorted = dex_strings_sorted(rebuilt_bytes)
         if unsorted:
             die("reassembled DEX has an unsorted string_ids table "
