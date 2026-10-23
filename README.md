@@ -13,10 +13,10 @@ PixelOS renoir build has been changed.
 - **Not** a new Dolby settings UI. MiSound is reused; this repo adds the entry
   point Settings links to, a Quick Settings tile, and the process that keeps
   the effect alive.
-- **Not** a POCO sound-alike. The Redwood DAX tuning is used as-is. renoir's
-  speakers are different hardware, so the result is not expected to match any
-  other device, and the existing speaker protection and amp limits are
-  untouched.
+- **Not** a POCO sound-alike. A generated renoir static-v1 speaker candidate
+  caps positive landscape optimizer gains at zero while preserving existing
+  cuts, portrait, headphone and protection settings. It is not acoustically
+  calibrated. See [tuning details and rollback](docs/renoir-dax-static-v1.md).
 - **Not** Dolby Vision, AC-3/E-AC-3/AC-4 decoding, or the Dolby camera/video
   blobs. This repo is audio effects only.
 
@@ -247,3 +247,22 @@ Do not merely delete the repository while its enabled inheritance remains.
 Source files here are Apache-2.0, matching the LineageOS convention. The
 proprietary blobs and the MiSound APK remain Xiaomi's, are not covered by that
 licence, and are not distributed by this repository.
+
+## Renoir speaker candidate (static-v1)
+
+Soong derives the installed `/vendor/etc/dolby/dax-default.xml` from the pinned
+Redwood input using `renoir_dax_tuning_generator` and `renoir_dax_static_v1`.
+The extracted proprietary XML and its recorded hash remain unchanged. Extraction
+therefore cannot silently overwrite the candidate policy. Only 13 positive raw
+optimizer gains in nine landscape bands become zero. This is an unmeasured
+starting point, not a proof of better frequency response or speaker safety.
+
+```sh
+python3 tools/gen-renoir-dax.py \
+  --stock proprietary/vendor/etc/dolby/dax-default.xml \
+  --out /tmp/dax-renoir-static-v1.xml --report /tmp/dax-renoir-static-v1.json
+python3 tests/test_dax_tuning.py
+```
+
+[Candidate policy, measurement procedure and rollback](docs/renoir-dax-static-v1.md).
+No dedicated Android measurement APK has been implemented.
