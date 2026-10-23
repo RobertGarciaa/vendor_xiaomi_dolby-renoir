@@ -5,10 +5,9 @@
 // Dolby Atmos (Redwood HyperOS software DAP) vendor components.
 //
 // Blob provenance is recorded in proprietary-files.txt and README.md.
-// Only 64-bit variants are shipped: audioserver, the effects
-// factory and the DMS HAL service are 64-bit on this product, so 32-bit
-// libswdap/libdapparamstorage/DMS would be dead weight with an unreviewed
-// linker surface.
+// The renoir effects factory runs in the 32-bit audio HAL service. Ship
+// both ABIs for DAP and its client dependencies; DMS itself remains 64-bit.
+// Keep the device audio HAL unchanged.
 //
 
 soong_namespace {
@@ -22,9 +21,6 @@ cc_prebuilt_library_shared {
     },
     target: {
         android: {
-            srcs: [
-                "proprietary/vendor/lib64/libdapparamstorage.so",
-            ],
             shared_libs: [
                 "libcutils",
                 "libutils",
@@ -36,7 +32,15 @@ cc_prebuilt_library_shared {
             ],
         },
     },
-    compile_multilib: "64",
+    arch: {
+        arm: {
+            srcs: ["proprietary/vendor/lib/libdapparamstorage.so"],
+        },
+        arm64: {
+            srcs: ["proprietary/vendor/lib64/libdapparamstorage.so"],
+        },
+    },
+    compile_multilib: "both",
     prefer: true,
     soc_specific: true,
 }
@@ -82,9 +86,6 @@ cc_prebuilt_library_shared {
     },
     target: {
         android: {
-            srcs: [
-                "proprietary/vendor/lib64/vendor.dolby.hardware.dms@2.0.so",
-            ],
             shared_libs: [
                 "libhidlbase",
                 "liblog",
@@ -97,7 +98,15 @@ cc_prebuilt_library_shared {
             ],
         },
     },
-    compile_multilib: "64",
+    arch: {
+        arm: {
+            srcs: ["proprietary/vendor/lib/vendor.dolby.hardware.dms@2.0.so"],
+        },
+        arm64: {
+            srcs: ["proprietary/vendor/lib64/vendor.dolby.hardware.dms@2.0.so"],
+        },
+    },
+    compile_multilib: "both",
     prefer: true,
     soc_specific: true,
 }
@@ -140,9 +149,6 @@ cc_prebuilt_library_shared {
     },
     target: {
         android: {
-            srcs: [
-                "proprietary/vendor/lib64/soundfx/libswdap.so",
-            ],
             shared_libs: [
                 "liblog",
                 "libutils",
@@ -158,7 +164,15 @@ cc_prebuilt_library_shared {
             ],
         },
     },
-    compile_multilib: "64",
+    arch: {
+        arm: {
+            srcs: ["proprietary/vendor/lib/soundfx/libswdap.so"],
+        },
+        arm64: {
+            srcs: ["proprietary/vendor/lib64/soundfx/libswdap.so"],
+        },
+    },
+    compile_multilib: "both",
     relative_install_path: "soundfx",
     prefer: true,
     soc_specific: true,

@@ -152,26 +152,26 @@ def main(argv=None):
         die("audio_effects_dolby.xml registers the hardware DAP UUID %s, "
             "which libswdap.so does not export" % SDAP_HW_UUID)
 
-    sdap = os.path.join(root, "proprietary", "vendor", "lib64", "soundfx",
-                        "libswdap.so")
-    if not os.path.isfile(sdap):
-        die("%s missing" % sdap)
+    for directory in ("lib", "lib64"):
+        sdap = os.path.join(root, "proprietary", "vendor", directory,
+                            "soundfx", "libswdap.so")
+        if not os.path.isfile(sdap):
+            die("%s missing" % sdap)
+        # The descriptor UUID lives in .rodata. Rather than trust a fixed offset,
+        # search the file for the on-disk encodings of each candidate UUID.
+        with open(sdap, "rb") as f:
+            blob = f.read()
+        has_sw = any(form in blob for form in uuid_forms(SDAP_SW_UUID))
+        has_hw = any(form in blob for form in uuid_forms(SDAP_HW_UUID))
+        if not has_sw:
+            die("libswdap.so does not contain the software DAP UUID %s; "
+                "this is not the Redwood software engine" % SDAP_SW_UUID)
+        if has_hw:
+            die("libswdap.so contains the hardware DAP UUID %s; refusing to "
+                "register the software UUID against this blob" % SDAP_HW_UUID)
 
-    # The descriptor UUID lives in .rodata. Rather than trust a fixed offset,
-    # search the file for the on-disk encodings of each candidate UUID.
-    with open(sdap, "rb") as f:
-        blob = f.read()
-    has_sw = any(form in blob for form in uuid_forms(SDAP_SW_UUID))
-    has_hw = any(form in blob for form in uuid_forms(SDAP_HW_UUID))
-    if not has_sw:
-        die("libswdap.so does not contain the software DAP UUID %s; "
-            "this is not the Redwood software engine" % SDAP_SW_UUID)
-    if has_hw:
-        die("libswdap.so contains the hardware DAP UUID %s; refusing to "
-            "register the software UUID against this blob" % SDAP_HW_UUID)
-
-    print("verify-blobs: libswdap.so exposes %s and not %s"
-          % (SDAP_SW_UUID, SDAP_HW_UUID))
+        print("verify-blobs: libswdap.so exposes %s and not %s"
+              % (SDAP_SW_UUID, SDAP_HW_UUID))
     return 0
 
 

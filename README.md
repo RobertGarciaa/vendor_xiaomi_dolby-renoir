@@ -178,15 +178,29 @@ product/app/MiSound/MiSound.apk
 sha256 1b83fbe1ce4f69b7aff557fa5b07c943b84f37c866a2211360e6aad68ea67e89
 ```
 
-Only 64-bit Dolby variants are currently shipped. **Runtime blocker found on
-2026-10-23:** the built `android.hardware.audio.service` is ELF32, even though
-audioserver and DMS are ELF64. The effects factory in that service cannot load
-this ELF64 `libswdap.so`; boot logs report it missing from effect directories.
-The earlier claim that the effect host was 64-bit was incorrect. Resolve the
-actual effect-host ABI before claiming Dolby works. Do not switch the whole
-HAL to 64-bit without checking the device-specific `audio.primary.renoir.so`
-and all core/optional HAL dependencies. The prior 32-bit dependency scan found
-unresolved symbols; simply adding the 32-bit blob is not an established fix.
+The renoir `android.hardware.audio.service` (including its effects factory)
+is **32-bit**. Ship both ABIs of `libswdap`, `libdapparamstorage`, and the
+`vendor.dolby.hardware.dms@2.0` client library. The DMS daemon, implementation,
+and service dependencies remain 64-bit. No change to the device audio HAL,
+amp firmware, calibration or system libraries is required for this correction.
+
+The earlier report of nine unresolved 32-bit symbols was a checker bug: its
+lookup searched `vendor/lib64` before `vendor/lib` for either ABI. The corrected
+check selects only the requested ELF class/machine and uses the runtime APEX
+for Bionic symlinks. Same-ABI checks resolve the three original 32-bit blobs;
+this is static evidence, not a substitute for effect creation and playback.
+
+After building, before flashing, run:
+
+```bash
+python3 vendor/xiaomi/dolby-renoir/tools/check-product-install.py \
+    --product-out out/target/product/renoir
+```
+
+The product check must find the system DolbyControl permission allowlist and
+the DAP library matching the actual audio service. Check transitive ELF
+symbols with `tools/check-elf-deps.py` as described in
+[the ABI correction record](docs/effect-host-abi.md).
 
 ### Not redistributed
 
