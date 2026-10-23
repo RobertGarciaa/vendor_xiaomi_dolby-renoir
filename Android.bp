@@ -254,10 +254,25 @@ prebuilt_etc {
 // certificate: "platform" re-signs the prebuilt with the platform key. That is
 // required because the patched APK must keep the same certificate identity as
 // the rest of the system image; it is not shipped with Xiaomi's signature.
+// Fail early if the prebuilt was generated before the null-selection fix.
+python_binary_host {
+    name: "renoir_misound_apk_verifier",
+    main: "tools/misound_apk_contract.py",
+    srcs: ["tools/misound_apk_contract.py"],
+}
+
+genrule {
+    name: "renoir_misound_verified_apk",
+    tools: ["renoir_misound_apk_verifier"],
+    srcs: ["proprietary/product/app/MiSound/MiSound.apk"],
+    out: ["MiSound-verified.apk"],
+    cmd: "$(location renoir_misound_apk_verifier) --input $(in) --output $(out)",
+}
+
 android_app_import {
     name: "MiSound",
     owner: "xiaomi",
-    apk: "proprietary/product/app/MiSound/MiSound.apk",
+    apk: ":renoir_misound_verified_apk",
     certificate: "platform",
     privileged: false,
     dex_preopt: {

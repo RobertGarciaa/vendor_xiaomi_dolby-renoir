@@ -42,6 +42,11 @@ wrapper (c/a in this build). If either UUID appears anywhere else in the
 disassembly the tool aborts: those call sites would need individual review, and
 a global string replace is not acceptable.
 
+The separate pinned y/h.w0 UI consumer also receives a null guard. It changes
+no supported-effect decision or engine setting; a missing selection is logged
+and that dependent refresh returns. The APK is still reassembled with a sorted
+DEX string table rather than patched bytewise.
+
 Safety
 ------
 * Input APK SHA-256 is pinned; any other MiSound build aborts.
@@ -84,6 +89,40 @@ REPLACEMENTS = (
 def die(msg):
     sys.stderr.write("patch-misound: error: %s\n" % msg)
     sys.exit(1)
+
+
+SELECTION_CLASS = "y/h"
+SELECTION_GUARD_MARKER = "renoir: effect selection unavailable; skip dependent UI refresh"
+
+
+def guard_effect_selection(body):
+    """Protect only the pinned null selection consumer; do not invent a value.
+
+    H0 can remove the unsupported selector without clearing its Java member.
+    w0 must not call String.equals on a still-null DropDownPreference value.
+    The caller x0 already treats null as unavailable. This guard changes no
+    engine state and does not turn missing capability into success.
+    """
+    start = '.method private w0()V\n'
+    if body.count(start) != 1 or ':renoir_selection_ready' in body:
+        raise ValueError('Unexpected or already patched selection method')
+    begin = body.index(start)
+    end = body.index('.end method', begin)
+    method = body[begin:end]
+    anchor = ('    invoke-virtual {v0}, Lmiuix/preference/DropDownPreference;->getValue()Ljava/lang/String;\n'
+              '\n    move-result-object v0\n')
+    if method.count(anchor) != 1 or '.registers 10' not in method:
+        raise ValueError('Pinned selection getter/register layout not found')
+    if 'invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z' not in method:
+        raise ValueError('Expected nullable selection consumer not found')
+    guard = ('\n    if-nez v0, :renoir_selection_ready\n'
+             '\n    const-string v0, "HeadsetSettings"\n'
+             '\n    const-string v1, "'+SELECTION_GUARD_MARKER+'"\n'
+             '\n    invoke-static {v0, v1}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I\n'
+             '\n    return-void\n'
+             '\n    :renoir_selection_ready\n')
+    method = method.replace(anchor, anchor + guard)
+    return body[:begin] + method + body[end:]
 
 
 def sha256_file(path):
@@ -382,6 +421,16 @@ def main():
         with open(target, "w", encoding="utf-8") as f:
             f.write(patched)
 
+        selection_target = os.path.join(smali_dir, SELECTION_CLASS + '.smali')
+        try:
+            with open(selection_target, 'r', encoding='utf-8') as f:
+                guarded = guard_effect_selection(f.read())
+        except (OSError, ValueError) as error:
+            die('selection null guard: '+str(error))
+        with open(selection_target, 'w', encoding='utf-8') as f:
+            f.write(guarded)
+        print('patch-misound: guarded original nullable effect-selection consumer')
+
         print("patch-misound: reassembling classes.dex")
         patched_dex = os.path.join(work, "classes-patched.dex")
         run(smali + ["a", smali_dir, "-o", patched_dex])
@@ -389,7 +438,10 @@ def main():
         # The reassembled pool must stay sorted, or ART's binary-search string
         # lookup can miss entries. This is the check that caught the raw
         # byte-patch approach being wrong.
-        count, unsorted = dex_strings_sorted(open(patched_dex, "rb").read())
+        rebuilt_bytes = open(patched_dex, "rb").read()
+        if rebuilt_bytes.count(SELECTION_GUARD_MARKER.encode('ascii')) != 1:
+            die('selection guard marker missing/duplicated in rebuilt DEX')
+        count, unsorted = dex_strings_sorted(rebuilt_bytes)
         if unsorted:
             die("reassembled DEX has an unsorted string_ids table "
                 "(%d unsorted neighbours); refusing to ship it" % len(unsorted))
