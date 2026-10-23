@@ -39,6 +39,9 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 
+import java.io.FileDescriptor;
+import java.io.PrintWriter;
+import java.util.Arrays;
 import java.util.UUID;
 
 public final class DolbyEffectService extends Service {
@@ -204,6 +207,32 @@ public final class DolbyEffectService extends Service {
         }
         Log.i(TAG, "service destroyed");
         super.onDestroy();
+    }
+
+    /** Read-only engine evidence for dumpsys; never acquire a writer or restore prefs. */
+    @Override
+    protected void dump(FileDescriptor fd, PrintWriter writer, String[] args) {
+        synchronized (mLock) {
+            DolbyAudioEffect effect = mEffect;
+            writer.println("DAP implementation=" + DAP_IMPL_UUID);
+            writer.println("effectPresent=" + (effect != null));
+            if (effect == null) return;
+            try {
+                writer.println("hasControl=" + effect.hasControl());
+                writer.println("enabled=" + effect.getDsOn());
+                writer.println("profile=" + effect.getProfile());
+            } catch (RuntimeException unavailable) {
+                writer.println("stateReadError=" + unavailable);
+            }
+            for (int profile : DolbyPrefs.KNOWN_PROFILES) {
+                try {
+                    writer.println("profile=" + profile + " param=110 values="
+                            + Arrays.toString(effect.getProfileParameter(profile, 110, 20)));
+                } catch (RuntimeException unavailable) {
+                    writer.println("profile=" + profile + " param=110 readError=" + unavailable);
+                }
+            }
+        }
     }
 
     private void onRouteChanged(String reason) {

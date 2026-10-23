@@ -14,7 +14,9 @@ import zipfile
 import zlib
 
 GUARD_MARKERS=(b'renoir: effect selection unavailable; skip dependent UI refresh',
-               b'renoir: no effect selection at create; report Dolby inactive')
+               b'renoir: no effect selection at create; report Dolby inactive',
+               b'renoir: no effect selection at destroy; preserve cleanup',
+               b'renoir: Dolby GEQ uses DAP without legacy sound effects')
 REQUIRED_UUIDS=(b'6ab06da4-c516-4611-8166-452799218539',b'46d279d9-9be7-453d-9d7c-ef937f675587')
 OLD_UUIDS=(b'9d4921da-8225-4f29-aefa-39537a04bcaa',b'ec7178ec-e5e1-4432-a3f4-4657e6795210')
 

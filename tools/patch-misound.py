@@ -42,9 +42,10 @@ wrapper (c/a in this build). If either UUID appears anywhere else in the
 disassembly the tool aborts: those call sites would need individual review, and
 a global string replace is not acceptable.
 
-The separate pinned y/h.w0 UI consumer also receives a null guard. It changes
-no supported-effect decision or engine setting; a missing selection is logged
-and that dependent refresh returns. The APK is still reassembled with a sorted
+Three pinned y/h UI consumers receive null guards without skipping cleanup.
+In Dolby mode GeqView retains its original DAP writer and skips only the
+parallel legacy MiSound/Dirac initialization and band writes. No capability
+result, missing framework implementation or engine success is invented. The APK is still reassembled with a sorted
 DEX string table rather than patched bytewise.
 
 Safety
@@ -170,6 +171,92 @@ def guard_effect_selection(body):
              '\n    :renoir_selection_ready\n')
     method = method.replace(anchor, anchor + guard)
     return body[:begin] + method + body[end:]
+
+
+DESTROY_GUARD_MARKER = "renoir: no effect selection at destroy; preserve cleanup"
+GEQ_GUARD_MARKER = "renoir: Dolby GEQ uses DAP without legacy sound effects"
+GEQ_CLASS = "com/miui/misound/view/GeqView"
+
+
+def replace_method(body, signature, transform):
+    start = '.method ' + signature + '\n'
+    if body.count(start) != 1:
+        raise ValueError('Pinned method not found: ' + signature)
+    begin = body.index(start)
+    end = body.index('.end method', begin)
+    original = body[begin:end]
+    return body[:begin] + transform(original) + body[end:]
+
+
+def replace_once(body, anchor, replacement):
+    if body.count(anchor) != 1:
+        raise ValueError('Pinned instruction block missing or duplicated')
+    return body.replace(anchor, replacement, 1)
+
+
+def guard_destroy_selection(body):
+    """Null means no selected effect; always execute original teardown."""
+    def apply(method):
+        if '.registers 6' not in method or ':renoir_destroy_selection_done' in method:
+            raise ValueError('Unexpected or already patched onDestroy')
+        anchor = ('    const-string v2, "dolby"\n\n'
+                  '    invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z\n\n'
+                  '    move-result v1\n')
+        guard = ('    if-nez v1, :renoir_destroy_selection_known\n\n'
+                 '    const-string v1, "HeadsetSettings"\n\n'
+                 '    const-string v2, "' + DESTROY_GUARD_MARKER + '"\n\n'
+                 '    invoke-static {v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;)I\n\n'
+                 '    const/4 v1, 0x0\n\n'
+                 '    goto :renoir_destroy_selection_done\n\n'
+                 '    :renoir_destroy_selection_known\n' + anchor + '\n'
+                 '    :renoir_destroy_selection_done\n')
+        return replace_once(method, anchor, guard)
+    return replace_method(body, 'public onDestroy()V', apply)
+
+
+def guard_dolby_geq(body):
+    """Keep the stock DAP writer; bypass legacy effects only in Dolby mode.
+
+    w is initialized by the original DAP capability check. Preserve paint,
+    curve/mirror updates and custom preset persistence. All three reads of u
+    (legacy init plus two band writers) must be covered; never patch p0/c or
+    globally pretend the absent MiSound/Dirac framework effect exists.
+    """
+    if ':renoir_legacy_init' in body:
+        raise ValueError('GEQ already patched')
+    if body.count('->u:Lp0/c;') != 3:
+        raise ValueError('Unexpected legacy effect field access count')
+    def init(method):
+        anchor = '    invoke-static {}, Lp0/c;->r()Lp0/c;\n'
+        guard = ('    iget-boolean v0, p0, Lcom/miui/misound/view/GeqView;->w:Z\n\n'
+                 '    if-eqz v0, :renoir_legacy_init\n\n'
+                 '    const-string v0, "GeqView"\n\n'
+                 '    const-string v1, "' + GEQ_GUARD_MARKER + '"\n\n'
+                 '    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I\n\n'
+                 '    return-void\n\n'
+                 '    :renoir_legacy_init\n')
+        if '.registers 4' not in method:
+            raise ValueError('Unexpected GEQ init registers')
+        return replace_once(method, anchor, guard + anchor)
+    body = replace_method(body, 'private a()V', init)
+    def preset(method):
+        anchor = ('    invoke-virtual {p0, p2}, Lcom/miui/misound/view/GeqView;->f([F)V\n')
+        # d() has already computed/transmitted the 20 DAP bands. e() is
+        # only the parallel legacy writer, but its UI mirror update stays.
+        guard = ('\n    iget-boolean v0, p0, Lcom/miui/misound/view/GeqView;->w:Z\n\n'
+                 '    if-nez v0, :cond_2b\n')
+        if '.registers 5' not in method or method.count(':cond_2b\n') != 2:
+            raise ValueError('Unexpected GEQ preset layout')
+        return replace_once(method, anchor, anchor + guard)
+    body = replace_method(body, 'public e(I[F)V', preset)
+    def touch(method):
+        anchor = '    iget-object v0, p0, Lcom/miui/misound/view/GeqView;->u:Lp0/c;\n'
+        guard = ('    iget-boolean v0, p0, Lcom/miui/misound/view/GeqView;->w:Z\n\n'
+                 '    if-nez v0, :renoir_legacy_band_done\n\n')
+        method = replace_once(method, anchor, guard + anchor)
+        call = '    invoke-virtual {v0, v1, v6, p1}, Lp0/c;->z(Landroid/content/Context;IF)V\n'
+        return replace_once(method, call, call + '\n    :renoir_legacy_band_done\n')
+    return replace_method(body, 'public onTouchEvent(Landroid/view/MotionEvent;)Z', touch)
 
 
 def sha256_file(path):
@@ -474,11 +561,21 @@ def main():
                 selection_body = f.read()
             guarded = guard_effect_selection(selection_body)
             guarded = guard_create_preferences_selection(guarded)
+            guarded = guard_destroy_selection(guarded)
         except (OSError, ValueError) as error:
             die('selection null guard: '+str(error))
         with open(selection_target, 'w', encoding='utf-8') as f:
             f.write(guarded)
-        print('patch-misound: guarded both nullable effect-selection consumers')
+        print('patch-misound: guarded all three nullable effect-selection consumers')
+
+        geq_target = os.path.join(smali_dir, GEQ_CLASS + '.smali')
+        try:
+            with open(geq_target, 'r', encoding='utf-8') as f:
+                geq_body = guard_dolby_geq(f.read())
+        except (OSError, ValueError) as exc:
+            die(str(exc))
+        with open(geq_target, 'w', encoding='utf-8') as f:
+            f.write(geq_body)
 
         print("patch-misound: reassembling classes.dex")
         patched_dex = os.path.join(work, "classes-patched.dex")
@@ -488,7 +585,7 @@ def main():
         # lookup can miss entries. This is the check that caught the raw
         # byte-patch approach being wrong.
         rebuilt_bytes = open(patched_dex, "rb").read()
-        for marker in (SELECTION_GUARD_MARKER, CREATE_GUARD_MARKER):
+        for marker in (SELECTION_GUARD_MARKER, CREATE_GUARD_MARKER, DESTROY_GUARD_MARKER, GEQ_GUARD_MARKER):
             if rebuilt_bytes.count(marker.encode('ascii')) != 1:
                 die('guard marker missing/duplicated in rebuilt DEX: '+marker)
         count, unsorted = dex_strings_sorted(rebuilt_bytes)

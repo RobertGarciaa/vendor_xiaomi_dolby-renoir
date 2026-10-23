@@ -5,10 +5,9 @@
 
      Dolby entry point, Quick Settings tile and the persistent effect owner.
 
-     This app is intentionally small. The Dolby UI, profiles and equalizer are
-     Redwood MiSound's; this package only provides the entry Settings can link
-     to, the tile, and the process that keeps the effect alive when MiSound's
-     UI is closed.
+     The entry screen and QS use the same DAP controller. The graphic
+     equalizer is Redwood MiSound's original UI; unsupported MIUI audio
+     settings are not used as a prerequisite for editing Dolby.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.lineageos.dolby">
@@ -32,7 +31,7 @@
             android:name=".DolbySettingsActivity"
             android:exported="true"
             android:label="@string/dolby_title"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            android:theme="@android:style/Theme.DeviceDefault.Settings">
             <intent-filter>
                 <action android:name="com.android.settings.action.IA_SETTINGS" />
             </intent-filter>

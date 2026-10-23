@@ -10,4 +10,8 @@
     <string name="profile_movie">Movie</string>
     <string name="profile_music">Music</string>
     <string name="profile_voice">Voice</string>
+    <string name="dolby_profile">Sound profile</string>
+    <string name="dolby_equalizer">Graphic equalizer</string>
+    <string name="dolby_equalizer_summary">Edit Dolby presets and custom equalizer bands</string>
+    <string name="dolby_capability_unavailable">Dolby capability is unavailable. The matching ROM policy is required.</string>
 </resources>

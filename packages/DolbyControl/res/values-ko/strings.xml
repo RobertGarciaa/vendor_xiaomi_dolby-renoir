@@ -10,4 +10,8 @@
     <string name="profile_movie">영화</string>
     <string name="profile_music">음악</string>
     <string name="profile_voice">음성</string>
+    <string name="dolby_profile">사운드 프로필</string>
+    <string name="dolby_equalizer">그래픽 이퀄라이저</string>
+    <string name="dolby_equalizer_summary">돌비 프리셋과 사용자 지정 이퀄라이저 조정</string>
+    <string name="dolby_capability_unavailable">돌비 지원 정보를 읽을 수 없습니다. 일치하는 ROM 정책이 필요합니다.</string>
 </resources>

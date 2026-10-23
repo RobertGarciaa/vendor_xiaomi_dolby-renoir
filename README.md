@@ -4,15 +4,16 @@ Dolby Atmos for the Xiaomi Mi 11 Lite 5G (renoir), built from the Redwood
 HyperOS Dolby stack.
 
 The goal is a working port, not a reimplementation: Redwood's original MiSound
-app provides the UI, profiles and equalizer, and Redwood's software DAP engine
+app provides the graphic equalizer, and Redwood's software DAP engine
 does the audio processing. Only what is required to run that combination on a
 PixelOS renoir build has been changed.
 
 ## What this is, and what it is not
 
-- **Not** a new Dolby settings UI. MiSound is reused; this repo adds the entry
-  point Settings links to, a Quick Settings tile, and the process that keeps
-  the effect alive.
+- Settings uses the existing DAP controller for enable and profile selection.
+  The graphic equalizer is the original MiSound UI. Its general sound-effects
+  screen depends on absent MIUI effects and is no longer the Settings entry.
+  See [GEQ compatibility and rebuild requirements](docs/misound-geq.md).
 - **Not** a POCO sound-alike. A generated renoir static-v1 speaker candidate
   caps positive landscape optimizer gains at zero while preserving existing
   cuts, portrait, headphone and protection settings. It is not acoustically
