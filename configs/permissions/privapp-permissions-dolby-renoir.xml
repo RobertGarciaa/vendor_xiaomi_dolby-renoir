@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<permissions>
+    <!-- DolbyControl is /system/priv-app; this allowlist must be on /system.
+         AudioService enforces this permission for the audioserver callback. -->
+    <privapp-permissions package="org.lineageos.dolby">
+        <permission name="android.permission.MODIFY_AUDIO_ROUTING" />
+    </privapp-permissions>
+</permissions>

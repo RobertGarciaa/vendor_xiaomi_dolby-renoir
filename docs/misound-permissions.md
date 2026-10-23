@@ -30,3 +30,12 @@ install/runtime permissions와 서명을 확인한다. 플랫폼 서명을 사�
 원본 manifest 전문은 저장하지 않는다. OTA APK에서 `aapt2 dump xmltree`로 확인한다.
 앱 자체의 `HEAR_PROTECT_SERVICE`, `CHILD_PROTECT_SERVICE`,
 `AUDOO_ROUTE_CHOOSER` 정의는 원본 APK에 남으며, 추가 플랫폼 정의는 하지 않는다.
+
+## 2026-10-23 부트루프 수정
+
+DolbyControl은 실제 `/system/priv-app/DolbyControl`로 설치된다. 이 제품의 enforce
+권한 정책에서는 플랫폼 서명과 별개로 `MODIFY_AUDIO_ROUTING`의 privileged allowlist
+누락이 system_server의 IllegalStateException 및 반복 재시작을 일으켰다.
+`configs/permissions/privapp-permissions-dolby-renoir.xml`을 같은 `/system` 파티션의
+`etc/permissions`에 설치해 필요한 권한 하나를 명시한다. MiSound의 비특권 product 앱
+권한 설명과 혼동하지 않는다. 앱 데이터 삭제나 SELinux permissive로 해결하지 않는다.

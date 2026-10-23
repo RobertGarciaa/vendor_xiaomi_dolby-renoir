@@ -32,6 +32,11 @@ PRODUCT_PACKAGES += \
 PRODUCT_PACKAGES += \
     DolbyControl
 
+# DolbyControl is privileged on /system. Platform signing does not replace
+# the privileged allowlist on this build (missing entry aborts system_server).
+PRODUCT_COPY_FILES += \
+    vendor/xiaomi/dolby-renoir/configs/permissions/privapp-permissions-dolby-renoir.xml:$(TARGET_COPY_OUT_SYSTEM)/etc/permissions/privapp-permissions-dolby-renoir.xml
+
 # Ported MiSound: the original UI, profiles and equalizer, with the effect
 # UUIDs rewritten to the software DAP. Built by tools/import-misound.sh, which
 # verifies the input hash before patching. See README.md.

@@ -140,7 +140,11 @@ shows `STATE_UNAVAILABLE` if the engine cannot be read.
 DolbyControl is a platform-signed system app with `persistent=true`. AOSP marks
 apps from scanned system partitions (including system_ext) as system apps; the
 original claim that persistence inherently requires `/system` was incorrect.
-Its current placement remains `/system`. MiSound is a non-privileged product
+Its current placement remains `/system/priv-app`. The same partition installs
+`etc/permissions/privapp-permissions-dolby-renoir.xml`, explicitly allowing
+`MODIFY_AUDIO_ROUTING`. Omitting this entry caused a real enforcing-build
+system_server boot loop on 2026-10-23; platform signing is not an exemption
+from this build's privileged permission check. MiSound is a non-privileged product
 app, also platform-signed. A privapp allowlist does not restrict signature grants
 for that app; see [the permission notes](docs/misound-permissions.md).
 
@@ -174,10 +178,15 @@ product/app/MiSound/MiSound.apk
 sha256 1b83fbe1ce4f69b7aff557fa5b07c943b84f37c866a2211360e6aad68ea67e89
 ```
 
-Only 64-bit variants are shipped. audioserver, the effects factory and the DMS
-service are all 64-bit here, and the 32-bit `libswdap.so` does not resolve
-against the current vendor `libutils` (9 unresolved symbols), so it would be
-dead weight.
+Only 64-bit Dolby variants are currently shipped. **Runtime blocker found on
+2026-10-23:** the built `android.hardware.audio.service` is ELF32, even though
+audioserver and DMS are ELF64. The effects factory in that service cannot load
+this ELF64 `libswdap.so`; boot logs report it missing from effect directories.
+The earlier claim that the effect host was 64-bit was incorrect. Resolve the
+actual effect-host ABI before claiming Dolby works. Do not switch the whole
+HAL to 64-bit without checking the device-specific `audio.primary.renoir.so`
+and all core/optional HAL dependencies. The prior 32-bit dependency scan found
+unresolved symbols; simply adding the 32-bit blob is not an established fix.
 
 ### Not redistributed
 
