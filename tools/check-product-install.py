@@ -6,10 +6,12 @@ modify images or prove runtime compatibility. A successful run still requires
 full ELF dependency, boot, effect creation and live SELinux/audio validation.
 """
 import argparse
+import hashlib
 from pathlib import Path
 import sys
 import xml.etree.ElementTree as ET
 from misound_apk_contract import verify_apk
+from dms_foundation_compat import OUTPUT_SHA
 
 
 def elf_class(path):
@@ -23,6 +25,15 @@ def elf_class(path):
 
 def check(out):
     errors = []
+    # Refuse a product assembled before the DMS ABI boundary was fixed.
+    for mode, name in [('consumer', 'libdlbdsservice.so'),
+                       ('provider', 'libsf_dolby_renoir.so')]:
+        path = out / 'vendor/lib64' / name
+        try:
+            if hashlib.sha256(path.read_bytes()).hexdigest() != OUTPUT_SHA[mode]:
+                errors.append('DMS compatibility ' + mode + ' missing/stale: ' + str(path))
+        except OSError as failure:
+            errors.append('DMS compatibility ' + mode + ': ' + str(failure))
     try:
         verify_apk(out/'product/app/MiSound/MiSound.apk')
     except Exception as failure:

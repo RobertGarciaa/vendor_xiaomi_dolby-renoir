@@ -137,6 +137,16 @@ def main(argv=None):
     print("verify-blobs: %d blobs match proprietary-files.sha256sum"
           % len(expected))
 
+    # DMS's private legacy foundation is a separately pinned APEX extraction,
+    # not a modified vendor source blob from proprietary-files.sha256sum.
+    from dms_foundation_compat import pinned, FOUNDATION_SHA, RELATIVE
+    try:
+        with open(os.path.join(root, 'proprietary', RELATIVE), 'rb') as stream:
+            pinned(stream.read(), FOUNDATION_SHA)
+    except (OSError, ValueError) as error:
+        die('DMS foundation missing/stale; rerun extract-files.py: ' + str(error))
+    print('verify-blobs: DMS private VNDK30 foundation matches pinned source')
+
     if args.skip_uuid:
         return 0
 

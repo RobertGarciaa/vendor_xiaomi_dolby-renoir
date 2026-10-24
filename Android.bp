@@ -54,11 +54,11 @@ cc_prebuilt_library_shared {
     target: {
         android: {
             srcs: [
-                "proprietary/vendor/lib64/libdlbdsservice.so",
+                ":renoir_dms_compat_consumer",
             ],
             shared_libs: [
                 "libutils",
-                "libstagefright_foundation",
+                "libsf_dolby_renoir",
                 "liblog",
                 "libxml2",
                 "libcrypto",
@@ -282,4 +282,49 @@ android_app_import {
     // preopting a hand-patched multidex APK adds risk without benefit.
     presigned: false,
     product_specific: true,
+}
+
+// DMS was built against AHandler's VNDK30 layout. Isolate its original
+// provider instead of letting Android 17 write new fields into the old object.
+python_binary_host {
+    name: "renoir_dms_foundation_fixup",
+    main: "tools/dms_foundation_compat.py",
+    srcs: ["tools/dms_foundation_compat.py"],
+}
+
+genrule {
+    name: "renoir_dms_compat_consumer",
+    tools: ["renoir_dms_foundation_fixup"],
+    srcs: ["proprietary/vendor/lib64/libdlbdsservice.so"],
+    out: ["libdlbdsservice.so"],
+    cmd: "$(location renoir_dms_foundation_fixup) --mode consumer --input $(in) --output $(out)",
+}
+
+genrule {
+    name: "renoir_dms_compat_provider",
+    tools: ["renoir_dms_foundation_fixup"],
+    srcs: ["proprietary/compat/vndk30/lib64/libstagefright_foundation.so"],
+    out: ["libsf_dolby_renoir.so"],
+    cmd: "$(location renoir_dms_foundation_fixup) --mode provider --input $(in) --output $(out)",
+}
+
+cc_prebuilt_library_shared {
+    name: "libsf_dolby_renoir",
+    owner: "xiaomi",
+    srcs: [":renoir_dms_compat_provider"],
+    shared_libs: [
+        "libutils",
+        "libcutils",
+        "liblog",
+        "libc++",
+        "libc",
+        "libm",
+        "libdl",
+    ],
+    compile_multilib: "64",
+    strip: {
+        none: true,
+    },
+    prefer: true,
+    soc_specific: true,
 }

@@ -152,6 +152,16 @@ def main():
         rc = 0
 
     if rc == 0:
+        compat = os.path.join(PROPRIETARY, 'compat', 'vndk30', 'lib64',
+                              'libstagefright_foundation.so')
+        command = [sys.executable, os.path.join(HERE, 'tools', 'dms_foundation_compat.py')]
+        if args.verify_only:
+            command += ['--mode', 'verify', '--input', compat]
+        else:
+            command += ['--mode', 'extract', '--input', args.dump, '--output', compat]
+        rc = subprocess.call(command)
+
+    if rc == 0:
         # Reuse the shared verifier so the UUID/effects checks always run too.
         rc = subprocess.call([sys.executable,
                               os.path.join(HERE, 'tools', 'verify-blobs.py'),

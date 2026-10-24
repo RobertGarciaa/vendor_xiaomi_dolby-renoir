@@ -21,6 +21,7 @@ PRODUCT_SOONG_NAMESPACES += \
 PRODUCT_PACKAGES += \
     libdapparamstorage \
     libdlbdsservice \
+    libsf_dolby_renoir \
     libswdap \
     vendor.dolby.hardware.dms@2.0 \
     vendor.dolby.hardware.dms@2.0-impl \
