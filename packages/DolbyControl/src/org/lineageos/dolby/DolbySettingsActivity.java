@@ -38,8 +38,12 @@ public final class DolbySettingsActivity extends PreferenceActivity {
         mEnabled.setTitle(R.string.dolby_title);
         mEnabled.setPersistent(false);
         mEnabled.setOnPreferenceChangeListener((preference, value) -> {
-            showFailure(mController.setEnabled((Boolean) value));
-            refresh();
+            if (!mController.isChangePending()) {
+                mController.setEnabledAsync((Boolean) value, result -> {
+                    showFailure(result);
+                    refresh();
+                });
+            }
             // Never let Preference overwrite the live readback with the request.
             return false;
         });
@@ -58,7 +62,12 @@ public final class DolbySettingsActivity extends PreferenceActivity {
                 Integer.toString(DolbyEffectService.PROFILE_VOICE)});
         mProfile.setOnPreferenceChangeListener((preference, value) -> {
             try {
-                showFailure(mController.setProfile(Integer.parseInt((String) value)));
+                if (!mController.isChangePending()) {
+                    mController.setProfileAsync(Integer.parseInt((String) value), result -> {
+                        showFailure(result);
+                        refresh();
+                    });
+                }
             } catch (NumberFormatException invalid) {
                 Toast.makeText(this, R.string.dolby_unavailable, Toast.LENGTH_SHORT).show();
             }
@@ -114,10 +123,10 @@ public final class DolbySettingsActivity extends PreferenceActivity {
         Boolean enabled = mController.readEnabled();
         Integer profile = mController.readProfile();
         boolean ready = enabled != null && profile != null && DolbyPrefs.isKnownProfile(profile);
-        mEnabled.setEnabled(ready);
+        mEnabled.setEnabled(ready && !mController.isChangePending());
         mEnabled.setChecked(Boolean.TRUE.equals(enabled));
         mEnabled.setSummary(ready ? null : getString(R.string.dolby_unavailable));
-        mProfile.setEnabled(ready);
+        mProfile.setEnabled(ready && !mController.isChangePending());
         boolean supported = DolbyPrefs.isSupported(this);
         mEqualizer.setEnabled(ready && supported);
         mEqualizer.setSummary(supported ? R.string.dolby_equalizer_summary

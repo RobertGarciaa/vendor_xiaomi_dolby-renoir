@@ -36,7 +36,7 @@ public final class DolbyTileService extends TileService {
     public void onClick() {
         super.onClick();
         DolbyEffectController controller = DolbyEffectController.get(this);
-        if (controller.isEnablePending()) return;
+        if (controller.isChangePending()) return;
         Boolean actual = controller.readEnabled();
         if (actual == null) {
             DolbyEffectService.start(this);

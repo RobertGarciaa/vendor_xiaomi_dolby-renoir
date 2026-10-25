@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+"""Exercise delayed DMS enable/profile acknowledgements with the real controller."""
 from pathlib import Path
 import importlib.util,tempfile,subprocess,shutil
 repo=Path(__file__).resolve().parents[1]
@@ -13,9 +15,9 @@ stubs['android/os/Handler.java'] = """package android.os; import java.util.*; pu
  public static void drain(){int n=0;while(!q.isEmpty()){
  if(++n>10000)throw new AssertionError("callback loop");q.remove(0).r.run();}}}
 """
-s=stubs['android/media/audiofx/AudioEffect.java'].replace('int priority;','public static int delayEnable=0;public static boolean ignoreEnable=false; int priority;')
-s=s.replace('parameters.put(key,a);','''if(param==0 && ignoreEnable){} else if(param==0 && delayEnable>0){
- final int k=key;final int[] v=a;final int delay=delayEnable;
+s=stubs['android/media/audiofx/AudioEffect.java'].replace('int priority;','public static int delayEnable=0,delayProfile=0;public static boolean ignoreEnable=false,ignoreProfile=false; int priority;')
+s=s.replace('parameters.put(key,a);','''if((param==0 && ignoreEnable)||(param==0x0A000000 && ignoreProfile)){} else if((param==0 && delayEnable>0)||(param==0x0A000000 && delayProfile>0)){
+ final int k=key;final int[] v=a;final int delay=param==0?delayEnable:delayProfile;
  new android.os.Handler(android.os.Looper.getMainLooper()).post(new Runnable(){int left=delay;public void run(){
  if(--left==0)parameters.put(k,v);else new android.os.Handler(android.os.Looper.getMainLooper()).post(this);}});
  }else parameters.put(key,a);''')
@@ -26,25 +28,38 @@ insert='''
  final int[] completed={0};final boolean[] success={false};
  AudioEffect.delayEnable=4;int initialWrites=AudioEffect.writes;
  c.setEnabledAsync(false,r->{completed[0]++;success[0]=r.ok;});
- check(c.isEnablePending()&&Boolean.TRUE.equals(c.readEnabled()),"old readback must stay pending");
+ check(c.isChangePending()&&Boolean.TRUE.equals(c.readEnabled()),"old readback must stay pending");
  c.setEnabledAsync(false,r->{throw new AssertionError("duplicate toggle accepted");});
  check(AudioEffect.writes==initialWrites+1,"pending taps must not send repeated writes");
- Handler.drain();check(completed[0]==1&&success[0]&&!c.isEnablePending(),"delayed DMS confirmation succeeds once");
+ Handler.drain();check(completed[0]==1&&success[0]&&!c.isChangePending(),"delayed DMS confirmation succeeds once");
  check(c.readProfile()==1,"toggle preserves profile");
  AudioEffect.delayEnable=0;AudioEffect.ignoreEnable=true;initialWrites=AudioEffect.writes;
  c.setEnabledAsync(true,r->{completed[0]++;success[0]=r.ok;});Handler.drain();
- check(completed[0]==2&&!success[0]&&!c.isEnablePending(),"missing confirmation fails within bounded reads");
+ check(completed[0]==2&&!success[0]&&!c.isChangePending(),"missing confirmation fails within bounded reads");
  check(AudioEffect.writes==initialWrites+1,"timeout must not resend a command");
  AudioEffect.ignoreEnable=false;
  c.setEnabledAsync(true,r->{completed[0]++;success[0]=r.ok;});Handler.drain();
  check(completed[0]==3&&success[0],"new request works after timeout");
  c.setEnabledAsync(false,r->{completed[0]++;success[0]=r.ok;});
  service.onDestroy();Handler.drain();
- check(completed[0]==4&&!success[0]&&!c.isEnablePending(),"service retirement cancels verification");
+ check(completed[0]==4&&!success[0]&&!c.isChangePending(),"service retirement cancels verification");
  service=new DolbyEffectService();service.onCreate();Handler.drain();c.setEnabled(true);
+ AudioEffect.delayProfile=4;initialWrites=AudioEffect.writes;
+ int profileBefore=completed[0];
+ c.setProfileAsync(2,r->{completed[0]++;success[0]=r.ok;});
+ check(c.isChangePending()&&c.readProfile()==1,"old profile readback remains pending");
+ c.setEnabledAsync(false,r->{throw new AssertionError("overlapping enable accepted");});
+ check(AudioEffect.writes==initialWrites+1,"profile and enable writes must serialize");
+ Handler.drain();check(completed[0]==profileBefore+1&&success[0]&&c.readProfile()==2,"delayed profile confirms once");
+ AudioEffect.delayProfile=0;AudioEffect.ignoreProfile=true;initialWrites=AudioEffect.writes;
+ c.setProfileAsync(1,r->{completed[0]++;success[0]=r.ok;});Handler.drain();
+ check(!success[0]&&!c.isChangePending()&&AudioEffect.writes==initialWrites+1,"profile timeout does not resend");
+ AudioEffect.ignoreProfile=false;c.setProfileAsync(1,r->{completed[0]++;success[0]=r.ok;});Handler.drain();
+ check(success[0]&&c.readProfile()==1,"profile request recovers after timeout");
+
 '''
 s=s.replace(point,insert+point)
-s=s.replace(' high.release();', ' int rejectedBefore=completed[0];\n c.setEnabledAsync(false,r->{completed[0]++;success[0]=r.ok;});\n check(completed[0]==rejectedBefore+1&&!success[0]&&!c.isEnablePending()&&high.hasControl(),"async rejection must clear pending and preserve higher owner");\n high.release();')
+s=s.replace(' high.release();', ' int rejectedBefore=completed[0];\n c.setEnabledAsync(false,r->{completed[0]++;success[0]=r.ok;});\n check(completed[0]==rejectedBefore+1&&!success[0]&&!c.isChangePending()&&high.hasControl(),"async rejection must clear pending and preserve higher owner");\n high.release();')
 
 stubs['org/lineageos/dolby/ContractTest.java']=s
 with tempfile.TemporaryDirectory() as tmp:

@@ -20,56 +20,75 @@ public final class DolbyEffectController {
     private final List<Runnable> mListeners = new ArrayList<>();
     private DolbyEffectService mService;
     private final Handler mHandler = new Handler(Looper.getMainLooper());
-    private boolean mEnablePending;
+    private boolean mChangePending;
 
-    public boolean isEnablePending() { return mEnablePending; }
+    public boolean isChangePending() { return mChangePending; }
 
-    /** Acknowledge DMS state asynchronously; never resend a toggle while pending. */
+    /** DMS accepts writes before its readback reflects the new state. */
     public void setEnabledAsync(boolean enabled, Callback callback) {
-        if (mEnablePending) return;
+        requestChange(e -> e.setDsOn(enabled),
+                () -> Boolean.valueOf(enabled).equals(readEnabled()), callback);
+    }
+
+    public void setProfileAsync(int profile, Callback callback) {
+        if (!DolbyPrefs.isKnownProfile(profile)) {
+            callback.onResult(Result.fail("Unknown profile " + profile));
+            return;
+        }
+        requestChange(e -> e.setProfile(profile),
+                () -> Integer.valueOf(profile).equals(readProfile()), callback);
+    }
+
+    private void requestChange(Mutation mutation, java.util.function.BooleanSupplier confirmed,
+            Callback callback) {
+        if (mChangePending) return;
         final DolbyEffectService service = mService;
         if (service == null) {
             callback.onResult(Result.fail("Dolby service is not running"));
             return;
         }
-        mEnablePending = true;
+        mChangePending = true;
+        notifyListeners();
+        Result failure = null;
         synchronized (service.lock()) {
             DolbyEffectService.DolbyAudioEffect writer = null;
             try {
                 writer = service.ensureControlLocked();
                 if (writer == null) throw new IllegalStateException("Dolby effect is unavailable");
-                writer.setDsOn(enabled);
+                mutation.run(writer);
             } catch (RuntimeException ex) {
-                Log.e(TAG, "Enable command failed", ex);
-                mEnablePending = false;
-                callback.onResult(Result.fail("Engine rejected change: " + ex.getMessage()));
-                return;
+                Log.e(TAG, "Engine rejected command", ex);
+                failure = Result.fail("Engine rejected change: " + ex.getMessage());
             } finally {
                 service.releaseControlLocked(writer);
             }
         }
-        // SET_PARAM acceptance precedes DMS parameter-update delivery. Readback
-        // immediately after SET can still contain the previous state.
+        if (failure != null) {
+            finishChange(service, failure, callback);
+            return;
+        }
+        // Never block the main thread or repeat a write while DMS catches up.
         mHandler.postDelayed(new Runnable() {
             private int remaining = 20;
             @Override public void run() {
-                Boolean actual = mService == service ? readEnabled() : null;
-                if (actual != null && actual == enabled) {
-                    finish(Result.ok());
+                if (mService == service && confirmed.getAsBoolean()) {
+                    finishChange(service, Result.ok(), callback);
                 } else if (mService != service || --remaining == 0) {
-                    Log.w(TAG, "Enable confirmation failed: target=" + enabled + " actual=" + actual);
-                    finish(Result.fail("Dolby state change was not confirmed"));
+                    Log.w(TAG, "State change was not confirmed before timeout/service retirement");
+                    finishChange(service, Result.fail("Dolby state change was not confirmed"), callback);
                 } else {
                     mHandler.postDelayed(this, 50);
                 }
             }
-            private void finish(Result result) {
-                mEnablePending = false;
-                captureEngineState("enable confirmation");
-                if (result.ok) service.notifyStateChanged();
-                callback.onResult(result);
-            }
         }, 50);
+    }
+
+    private void finishChange(DolbyEffectService service, Result result, Callback callback) {
+        mChangePending = false;
+        if (mService == null) notifyListeners();
+        else captureEngineState("change confirmation");
+        if (result.ok) service.notifyStateChanged();
+        callback.onResult(result);
     }
 
     private DolbyEffectController(Context context) { mPrefs = DolbyPrefs.get(context); }
