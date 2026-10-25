@@ -31,5 +31,38 @@ class DonorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             dax.derive(stock, donor + b' ')
 
+    def test_expanded_speaker_scope(self):
+        stock = (ROOT / 'proprietary/vendor/etc/dolby/dax-default.xml').read_bytes()
+        donor = (ROOT / 'tuning/taoyao-dax-default.xml').read_bytes()
+        output, report = dax.derive_speaker_settings(stock, donor)
+        before, after, reference = map(ET.fromstring, (stock, output, donor))
+
+        def normalized(node):
+            return (node.tag, dict(node.attrib), (node.text or '').strip(),
+                    [normalized(c) for c in node])
+
+        for name in ('speaker_landscape', 'speaker_portrait'):
+            path = "./tuning[@name='" + name + "']"
+            self.assertEqual(normalized(after.find(path)), normalized(reference.find(path)))
+            old, new = before.find(path), after.find(path)
+            index = list(after).index(new)
+            after.remove(new)
+            after.insert(index, ET.fromstring(ET.tostring(old)))
+        for original in before.findall('profile'):
+            path = "./profile[@id='" + original.get('id') + "']/data"
+            data, expected = after.find(path), reference.find(path)
+            node = data.find("endpoint_type[@id='speaker']")
+            self.assertEqual(normalized(node), normalized(expected.find("endpoint_type[@id='speaker']")))
+            index = list(data).index(node)
+            data.remove(node)
+            data.insert(index, ET.fromstring(ET.tostring(original.find("data/endpoint_type[@id='speaker']"))))
+        # Includes globals, authorization, routing, presets, headphone and other.
+        self.assertEqual(normalized(before), normalized(after))
+        self.assertEqual(report['output_sha256'], '20fd40e2be4cab7e2b15d8fcb23ebd3f0e5577d4ae1459a5bf0833dcf2669459')
+        self.assertEqual(report['changes'], ['tuning/speaker_landscape', 'profile/0/speaker',
+                                          'profile/1/speaker', 'profile/2/speaker', 'profile/8/speaker'])
+        with self.assertRaises(ValueError):
+            dax.derive_speaker_settings(stock, donor + b' ')
+
 if __name__ == '__main__':
     unittest.main()

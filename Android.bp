@@ -238,11 +238,23 @@ genrule {
     cmd: "$(location renoir_dax_tuning_generator) --stock $(location proprietary/vendor/etc/dolby/dax-default.xml) --donor $(location tuning/taoyao-dax-default.xml) --out $(out)",
 }
 
+// Expanded speaker experiment; profile globals and non-speaker endpoints retained.
+genrule {
+    name: "renoir_dax_taoyao_speaker_v2",
+    tools: ["renoir_dax_tuning_generator"],
+    srcs: [
+        "proprietary/vendor/etc/dolby/dax-default.xml",
+        "tuning/taoyao-dax-default.xml",
+    ],
+    out: ["dax-renoir-taoyao-speaker-v2.xml"],
+    cmd: "$(location renoir_dax_tuning_generator) --stock $(location proprietary/vendor/etc/dolby/dax-default.xml) --donor $(location tuning/taoyao-dax-default.xml) --speaker-settings --out $(out)",
+}
+
 // Install the generated renoir candidate at the original DMS lookup path.
 prebuilt_etc {
     name: "dolby-dax-default.xml",
     owner: "xiaomi",
-    src: ":renoir_dax_taoyao_original_v1",
+    src: ":renoir_dax_taoyao_speaker_v2",
     filename: "dax-default.xml",
     sub_dir: "dolby",
     soc_specific: true,

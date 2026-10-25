@@ -1,3 +1,6 @@
+> Historical landscape-only candidate; active build input is now
+> [speaker settings v2](renoir-dax-taoyao-speaker-v2.md). This module remains for rollback.
+
 # Renoir taoyao original landscape candidate
 
 Selected by user on 2026-10-25. This experimental build input replaces only
