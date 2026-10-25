@@ -1,3 +1,9 @@
+> Current speaker build input (2026-10-25): **taoyao original landscape Optimizer**,
+> including positive gains. Other Redwood settings and renoir hardware calibration
+> are preserved. Experimental, not acoustically validated. See
+> [policy and static-v1 rollback](docs/renoir-dax-taoyao-original-v1.md).
+> The static-v1 section below documents the retained baseline, not the active input.
+
 # vendor/xiaomi/dolby-renoir
 
 Dolby Atmos for the Xiaomi Mi 11 Lite 5G (renoir), built from the Redwood
