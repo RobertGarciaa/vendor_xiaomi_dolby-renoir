@@ -36,6 +36,7 @@ public final class DolbyTileService extends TileService {
     public void onClick() {
         super.onClick();
         DolbyEffectController controller = DolbyEffectController.get(this);
+        if (controller.isEnablePending()) return;
         Boolean actual = controller.readEnabled();
         if (actual == null) {
             DolbyEffectService.start(this);
@@ -43,11 +44,12 @@ public final class DolbyTileService extends TileService {
             return;
         }
         boolean target = !actual;
-        DolbyEffectController.Result result = controller.setEnabled(target);
-        if (!result.ok) {
-            Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show();
-        }
-        refresh();
+        controller.setEnabledAsync(target, result -> {
+            if (!result.ok) {
+                Toast.makeText(this, result.message, Toast.LENGTH_SHORT).show();
+            }
+            refresh();
+        });
     }
 
     @Override

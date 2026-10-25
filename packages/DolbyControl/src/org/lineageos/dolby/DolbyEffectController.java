@@ -6,6 +6,8 @@ package org.lineageos.dolby;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
+import android.os.Handler;
+import android.os.Looper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +19,58 @@ public final class DolbyEffectController {
     private final SharedPreferences mPrefs;
     private final List<Runnable> mListeners = new ArrayList<>();
     private DolbyEffectService mService;
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+    private boolean mEnablePending;
+
+    public boolean isEnablePending() { return mEnablePending; }
+
+    /** Acknowledge DMS state asynchronously; never resend a toggle while pending. */
+    public void setEnabledAsync(boolean enabled, Callback callback) {
+        if (mEnablePending) return;
+        final DolbyEffectService service = mService;
+        if (service == null) {
+            callback.onResult(Result.fail("Dolby service is not running"));
+            return;
+        }
+        mEnablePending = true;
+        synchronized (service.lock()) {
+            DolbyEffectService.DolbyAudioEffect writer = null;
+            try {
+                writer = service.ensureControlLocked();
+                if (writer == null) throw new IllegalStateException("Dolby effect is unavailable");
+                writer.setDsOn(enabled);
+            } catch (RuntimeException ex) {
+                Log.e(TAG, "Enable command failed", ex);
+                mEnablePending = false;
+                callback.onResult(Result.fail("Engine rejected change: " + ex.getMessage()));
+                return;
+            } finally {
+                service.releaseControlLocked(writer);
+            }
+        }
+        // SET_PARAM acceptance precedes DMS parameter-update delivery. Readback
+        // immediately after SET can still contain the previous state.
+        mHandler.postDelayed(new Runnable() {
+            private int remaining = 20;
+            @Override public void run() {
+                Boolean actual = mService == service ? readEnabled() : null;
+                if (actual != null && actual == enabled) {
+                    finish(Result.ok());
+                } else if (mService != service || --remaining == 0) {
+                    Log.w(TAG, "Enable confirmation failed: target=" + enabled + " actual=" + actual);
+                    finish(Result.fail("Dolby state change was not confirmed"));
+                } else {
+                    mHandler.postDelayed(this, 50);
+                }
+            }
+            private void finish(Result result) {
+                mEnablePending = false;
+                captureEngineState("enable confirmation");
+                if (result.ok) service.notifyStateChanged();
+                callback.onResult(result);
+            }
+        }, 50);
+    }
 
     private DolbyEffectController(Context context) { mPrefs = DolbyPrefs.get(context); }
     public static synchronized DolbyEffectController get(Context context) {

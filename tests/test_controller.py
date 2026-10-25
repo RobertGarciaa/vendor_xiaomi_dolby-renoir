@@ -48,6 +48,7 @@ STUBS = {
 'android/content/BroadcastReceiver.java': 'package android.content; public abstract class BroadcastReceiver {public abstract void onReceive(Context c,Intent i);}',
 'android/app/Service.java': '''package android.app; import android.content.*;import android.os.*;
  public class Service extends Context {public static final int START_STICKY=1;
+ protected void dump(java.io.FileDescriptor f,java.io.PrintWriter w,String[] a){}
  public void onCreate(){}public int onStartCommand(Intent i,int f,int s){return 0;}
  public IBinder onBind(Intent i){return null;}public void onDestroy(){}public void stopSelf(){}}''',
 'android/media/AudioDeviceInfo.java': 'package android.media; public class AudioDeviceInfo {}',
